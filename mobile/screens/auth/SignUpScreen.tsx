@@ -59,7 +59,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
         'نجح',
         'تم إنشاء حسابك بنجاح. تحقق من بريدك الإلكتروني للتأكيد.'
       );
-      // After successful signup, the app will navigate to SignIn
       navigation.navigate('SignIn');
     } catch (err) {
       Alert.alert('خطأ في التسجيل', error || 'حدث خطأ ما');

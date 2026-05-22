@@ -1,130 +1,145 @@
-import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
+import { create } from 'zustand';
+import supabase from '../lib/supabase';
 
-interface AuthState {
-  user: any
-  isLoading: boolean
-  error: string | null
-  isAuthenticated: boolean
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
 }
 
-interface AuthStore extends AuthState {
-  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
-  signOut: () => Promise<void>
-  getCurrentSession: () => Promise<void>
-  setError: (error: string | null) => void
+interface AuthStore {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  signUp: (email: string, password: string, name: string, phone: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  getCurrentSession: () => Promise<void>;
+  clearError: () => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
-  isLoading: false,
+  loading: false,
   error: null,
   isAuthenticated: false,
 
-  signUp: async (email: string, password: string, fullName: string, phone: string) => {
-    set({ isLoading: true, error: null })
+  signUp: async (email, password, name, phone) => {
+    set({ loading: true, error: null });
     try {
-      // 1. إنشاء حساب في Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-      })
+        options: {
+          data: {
+            name,
+            phone,
+          },
+        },
+      });
 
-      if (authError) throw new Error(authError.message)
+      if (error) throw error;
 
-      // 2. إضافة بيانات المستخدم في جدول users
-      if (authData.user) {
-        const { error: profileError } = await supabase.from('users').insert({
-          id: authData.user.id,
-          email,
-          full_name: fullName,
-          phone,
-        })
-
-        if (profileError) throw new Error(profileError.message)
+      if (data.user) {
+        set({
+          user: {
+            id: data.user.id,
+            email: data.user.email || '',
+            name: name,
+            phone: phone,
+          },
+          isAuthenticated: true,
+          loading: false,
+        });
       }
-
-      set({ isAuthenticated: true, user: authData.user })
     } catch (err: any) {
-      set({ error: err.message })
-      throw err
-    } finally {
-      set({ isLoading: false })
+      set({ error: err.message || 'خطأ في التسجيل', loading: false });
+      throw err;
     }
   },
 
-  signIn: async (email: string, password: string) => {
-    set({ isLoading: true, error: null })
+  signIn: async (email, password) => {
+    set({ loading: true, error: null });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
-      if (error) throw new Error(error.message)
+      if (error) throw error;
 
-      // جلب بيانات المستخدم الإضافية
       if (data.user) {
-        const { data: profileData } = await supabase
-          .from('users')
+        const { data: profile } = await supabase
+          .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single()
+          .single();
 
         set({
+          user: {
+            id: data.user.id,
+            email: data.user.email || '',
+            name: profile?.name || '',
+            phone: profile?.phone || '',
+          },
           isAuthenticated: true,
-          user: { ...data.user, profile: profileData },
-        })
+          loading: false,
+        });
       }
     } catch (err: any) {
-      set({ error: err.message })
-      throw err
-    } finally {
-      set({ isLoading: false })
+      set({ error: err.message || 'خطأ في تسجيل الدخول', loading: false });
+      throw err;
     }
   },
 
   signOut: async () => {
-    set({ isLoading: true, error: null })
+    set({ loading: true, error: null });
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw new Error(error.message)
-      set({ isAuthenticated: false, user: null })
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      set({
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+      });
     } catch (err: any) {
-      set({ error: err.message })
-      throw err
-    } finally {
-      set({ isLoading: false })
+      set({ error: err.message || 'خطأ في تسجيل الخروج', loading: false });
+      throw err;
     }
   },
 
   getCurrentSession: async () => {
-    set({ isLoading: true })
+    set({ loading: true });
     try {
-      const { data, error } = await supabase.auth.getSession()
-      if (error) throw new Error(error.message)
-
+      const { data } = await supabase.auth.getSession();
+      
       if (data.session?.user) {
-        const { data: profileData } = await supabase
-          .from('users')
+        const { data: profile } = await supabase
+          .from('profiles')
           .select('*')
           .eq('id', data.session.user.id)
-          .single()
+          .single();
 
         set({
+          user: {
+            id: data.session.user.id,
+            email: data.session.user.email || '',
+            name: profile?.name || '',
+            phone: profile?.phone || '',
+          },
           isAuthenticated: true,
-          user: { ...data.session.user, profile: profileData },
-        })
+          loading: false,
+        });
       } else {
-        set({ isAuthenticated: false, user: null })
+        set({ user: null, isAuthenticated: false, loading: false });
       }
     } catch (err: any) {
-      set({ error: err.message })
-    } finally {
-      set({ isLoading: false })
+      set({ error: err.message, loading: false });
     }
   },
 
-  setError: (error: string | null) => set({ error }),
-}))
+  clearError: () => set({ error: null }),
+}));
