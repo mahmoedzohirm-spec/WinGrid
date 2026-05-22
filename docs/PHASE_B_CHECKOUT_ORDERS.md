@@ -36,7 +36,7 @@ updateOrderStatus(orderId, status)
 ✅ ملخص الطلب
 ✅ معلومات مهمة عن الطلب
 ✅ زر تأكيد الطلب
-✅ معالجة ا��أخطاء
+✅ معالجة الأخطاء
 
 ### 3️⃣ **شاشة "طلباتي" محدّثة** (`mobile/screens/MyOrdersScreen.tsx`)
 
